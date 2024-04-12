@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Dashboard</title>
+</head>
+
+<div class="content-container">
+    <form action="/toggle_error_mode" method="post">
+        <input type="checkbox" name="error_mode" id="error_mode" onchange="this.form.submit()" {{ 'checked' if error_mode else '' }}>
+        <label for="error_mode">Toggle Error Mode</label>
+    </form>
+</div>
+<body>
+    <div class="content-container">
+        <h2>Welcome, {{ user.username }}</h2>
+        <form id="plant-form">
+            Plant Name: <input type="text" name="plant_name" required>
+            <br>
+            Plant Type:
+            <select name="plant_type" required>
+                <option value="pitcher">Pitcher</option>
+                <option value="venus">Venus Flytrap</option>
+                <option value="sundew">Sundews</option>
+            </select>
+            <br>
+            <input type="submit" value="Add Plant">
+        </form>
+        <div id="plants-container">
+            <!-- Render plants initially present in the database -->
+            {% for plant in plants %}
+            <div class="plant-container" style="background-color: white; padding: 10px; margin: 5px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <strong>{{ plant.name }}</strong> - ID: {{ plant.id }}<br>
+                Plant Type: {{ plant.plant_type }}<br>
+                <img src="{{ url_for('static', filename='images/' + plant.plant_type + '.png') }}" alt="{{ plant.plant_type }}" style="width:100px;"><br>
+                Temperature: <span id="temp-{{ plant.id }}">Waiting...</span><br>
+                Humidity: <span id="humid-{{ plant.id }}">Waiting...</span><br>
+                Water Level: <span id="water-{{ plant.id }}">Waiting...</span><br>
+                Flies Eaten: <span id="flies-{{ plant.id }}">Waiting...</span>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="/logout">Logout</a>
+    </div>
+
+    <!-- Include Socket.IO client -->
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+            var form = document.getElementById('plant-form');
+
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                var plantName = form.querySelector('input[name="plant_name"]').value;
+                var plantType = form.querySelector('select[name="plant_type"]').value; // Capture plant type from the select
+                socket.emit('add_plant', { 'plant_name': plantName, 'plant_type': plantType });
+                form.querySelector('input[name="plant_name"]').value = ''; // Clear the input after sending
+            };
+
+            socket.on('new_plant', function(data) {
+                var container = document.getElementById('plants-container');
+                var newPlant = document.createElement('div');
+                newPlant.className = 'plant-container'; // Add a class for styling
+                newPlant.innerHTML = `
+                    <div style="background-color: white; padding: 10px; margin: 5px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <strong>${data.plant_name}</strong> - ID: ${data.plant_id}<br>
+                        Plant Type: ${data.plant_type}<br>
+                        <img src="/static/images/${data.plant_type}.png" alt="${data.plant_type}" style="width:100px;"><br>
+                        Temperature: <span id="temp-${data.plant_id}">Waiting...</span><br>
+                        Humidity: <span id="humid-${data.plant_id}">Waiting...</span><br>
+                        Water Level: <span id="water-${data.plant_id}">Waiting...</span>
+                        Flies Eaten: <span id="flies-${data.plant_id}">Waiting...</span>
+                    </div>`;
+                container.appendChild(newPlant);
+            });
+
+            socket.on('update_plant', function(updateData) {
+            console.log('Update data received:', updateData);  // Make sure this line logs data
+            var tempSpan = document.getElementById(`temp-${updateData.plant_id}`);
+            var humidSpan = document.getElementById(`humid-${updateData.plant_id}`);
+            var waterSpan = document.getElementById(`water-${updateData.plant_id}`);
+            var fliesSpan = document.getElementById(`flies-${updateData.plant_id}`);
+
+            if (tempSpan) tempSpan.textContent = updateData.data.temperature;
+            if (humidSpan) humidSpan.textContent = updateData.data.humidity;
+            if (waterSpan) waterSpan.textContent = updateData.data.water_level;
+            if (fliesSpan) fliesSpan.textContent = updateData.data.number_of_insects;
+});
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: url('/static/wallpaper.png'), linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0));
+    background-repeat: repeat;
+    background-size: 200px 200px; /* Adjust based on your preference */
+    background-color: #FFFFFF; /* This color shows before the image loads */
+    font-family: 'Indie Flower', cursive;
+}
+
+body {
+    width: 100%;
+    max-width: 600px; /* Adjust the max-width as necessary */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.container {
+    text-align: center;
+    width: 100%;
+}
+
+.header {
+    background-color: #52734D;
+    color: white;
+    margin-bottom: 30px;
+    padding: 20px;
+    text-align: center;
+    font-size: 30px;
+    border-radius: 0 0 10px 10px;
+    width: 100%;
+}
+
+a {
+    display: inline-block;
+    margin: 5px;
+    padding: 10px 15px;
+    background-color: #789c74;
+    color: white;
+    border-radius: 5px;
+    text-decoration: none;
+    transition: background-color 0.3s ease;
+}
+
+a:hover, a:focus {
+    background-color: #567256;
+    color: white;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background-color: #6AA84F;
+    border-color: #6AA84F;
+}
+
+.btn-primary:hover {
+    background-color: #458C28;
+    border-color: #458C28;
+}
+
+.form-control {
+    border-radius: 5px;
+}
+
+.index-image {
+    width: 100%; /* Makes the image responsive */
+    max-width: 600px; /* Adjust based on your layout */
+    display: block; /* Removes bottom space */
+    margin-bottom: 30px; /* Space between the image and the text */
+}
+
+.content-container {
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px; /* Optional: adds rounded corners */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* Optional: adds a subtle shadow */
+    text-align: center; /* Center the content */
+    margin: 20px auto; /* Center the container horizontally */
+    width: fit-content; /* Adjust the width as needed */
+}
+
+#plants-container {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr); /* Create four columns */
+    grid-gap: 10px; /* Space between grid items */
+    padding: 5px; /* Padding around the entire grid */
+}
+
+.plant-container {
+    background-color: white;
+    padding: 5px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center; /* Center align the text inside each plant container */
+}
+
+@media (max-width: 800px) {
+    #plants-container {
+        grid-template-columns: repeat(2, 1fr); /* Only 2 columns on smaller screens */
+    }
+}
