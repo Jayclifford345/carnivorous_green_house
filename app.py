@@ -8,7 +8,7 @@ import logging
 from sqlalchemy.exc import IntegrityError
 
 # Configure logging
-logging.basicConfig(filename="app.log", level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(filename="./logs/app.log", level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -171,4 +171,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     socketio.start_background_task(simulate_plant_data)
-    socketio.run(app, debug=True, port=5002)
+    socketio.run(app=app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)

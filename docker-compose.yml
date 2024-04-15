@@ -1,0 +1,11 @@
+version: '3'
+services:
+  carnivorous-garden:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports: 
+      - 5006:5000
+    volumes:
+      - ./logs:/app/logs/ 
+    
