@@ -112,13 +112,12 @@ def handle_add_plant(json):
         logger.error("Unauthorized or failed attempt to add plant.")
         emit('error', {'error': 'Failed to add plant due to server error'}, room=request.sid)
         return
-
     plant_name = json.get('plant_name')
     plant_type = json.get('plant_type')
     new_plant = Plant(name=plant_name, plant_type=plant_type, health_data="Healthy", user_id=user_id)
     db.session.add(new_plant)
     db.session.commit()
-    emit('new_plant', {'plant_id': new_plant.id, 'plant_name': new_plant.name, 'plant_type': new_plant.plant_type}, room=user_id)
+    emit('new_plant', {'plant_id': new_plant.id, 'plant_name': new_plant.name, 'plant_type': new_plant.plant_type}, room=str(user_id))
     logger.info(f"New plant {plant_name} added successfully.")
 
 
