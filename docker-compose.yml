@@ -8,4 +8,5 @@ services:
       - 5005:5000
     volumes:
       - ./logs:/app/logs/ 
+  
     

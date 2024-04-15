@@ -1,21 +1,25 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash 
 from random import randint, uniform
 import threading
 import logging
 from sqlalchemy.exc import IntegrityError
 
 # Configure logging
-logging.basicConfig(filename="./logs/app.log", level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="./logs/app.log",
+    level=logging.INFO,
+    format='time="%(asctime)s" logger="%(name)s" level="%(levelname)s" message="%(message)s"'
+)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'plantsarecool1234'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///carnivorous_green_house.db'
 db = SQLAlchemy(app)
-socketio = SocketIO(app, cors_allowed_origins="*", engineio_logger=True)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -37,7 +41,7 @@ def index():
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    error_mode = session.get('error_mode', False)  # Get the current error mode state
+    error_mode = session.get('error_mode', False)
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -46,64 +50,79 @@ def signup():
         try:
             db.session.add(new_user)
             db.session.commit()
-            logger.info(f"New user created: {username}")
+            logger.info(f'user="{username}" action="create" status="success"')
             return redirect(url_for('login'))
         except IntegrityError:
-            db.session.rollback()  # Important to rollback the session to clean state
-            logger.error(f"Signup failed: Username '{username}' already exists.")
-            return render_template('signup.html', error="That username is already taken, please choose another.", error_mode=error_mode)
+            db.session.rollback()
+            logger.error(f'user="{username}" action="signup" status="failed" error="username exists"')
+            return render_template('signup.html', error="That username is already taken, please choose another.", error_mode=error_mode), 409
         except Exception as e:
             db.session.rollback()
-            logger.exception("An unexpected error occurred during signup.")
-            return render_template('signup.html', error="An unexpected error occurred. Please try again.", error_mode=error_mode)
+            logger.exception(f'user="{username}" action="signup" status="error"')
+            return render_template('signup.html', error="An unexpected error occurred. Please try again.", error_mode=error_mode), 500
     return render_template('signup.html', error_mode=error_mode)
+
+@app.after_request
+def log_response(response):
+    logger.info(f'path="{request.path}" method="{request.method}" status="{response.status_code}"')
+    return response
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    error_mode = session.get('error_mode', False)  # Get the current error mode state
+    error_mode = session.get('error_mode', False)
     if request.method == 'POST':
-        if session.get('error_mode', False) and randint(0, 1):
-            logger.error("Login process failed unexpectedly.")
-            return 'Login Error', 500
-
         username = request.form['username']
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
+        if error_mode and randint(0, 1):
+            logger.error(f'user="{username}" action="login" status="error" error="random failure due to error mode"')
+            return 'Login Error', 500
         if user and check_password_hash(user.password_hash, password):
             session['user_id'] = user.id
+            logger.info(f'user="{username}" action="login" status="success"')
             return redirect(url_for('dashboard'))
-        return 'Login Failed'
+        logger.warning(f'user="{username}" action="login" status="failed" error="invalid credentials"')
+        return 'Login Failed', 401
     return render_template('login.html', error_mode=error_mode)
+
+@app.after_request
+def log_response(response):
+    logger.info(f'path="{request.path}" method="{request.method}" status="{response.status_code}"')
+    return response
 
 @app.route('/logout')
 def logout():
-    error_mode = session.get('error_mode', False)  # Get the current error mode state
-    if session.get('error_mode', False) and randint(0, 1):
-        logger.error("Logout failed due to session error.")
+    error_mode = session.get('error_mode', False)
+    username = session.get('username', 'unknown')
+    if error_mode and randint(0, 1):
+        logger.error(f'user="{username}" action="logout" status="error" error="Failed to loggout."')
         return "Logout Error", 500
-    
     session.pop('user_id', None)
+    logger.info(f'user="{username}" action="logout" status="success"')
     return redirect(url_for('index'))
 
 @app.route('/dashboard', methods=['GET'])
 def dashboard():
-    error_mode = session.get('error_mode', False)  # Get the current error mode state
+    error_mode = session.get('error_mode', False)
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
     user_id = session['user_id']
     user = User.query.get(user_id)
     plants = Plant.query.filter_by(user_id=user_id).all()
-    
     return render_template('dashboard.html', user=user, plants=plants, error_mode=error_mode)
 
 @app.route('/toggle_error_mode', methods=['POST'])
 def toggle_error_mode():
     current_mode = session.get('error_mode', False)
-    session['error_mode'] = not current_mode  # Toggle the state
-    session.modified = True  # Make sure the change is saved
+    session['error_mode'] = not current_mode
+    session.modified = True
     logger.info(f"Error mode toggled to {'on' if session['error_mode'] else 'off'}.")
     return redirect(request.referrer or url_for('index'))
+
+@app.after_request
+def log_response(response):
+    logger.info(f'path="{request.path}" method="{request.method}" status="{response.status_code}"')
+    return response
 
 @socketio.on('add_plant')
 def handle_add_plant(json):
@@ -127,10 +146,7 @@ active_users = {}
 def handle_connect():
     user_id = session.get('user_id')
     if user_id:
-        # Initialize or update the user's status including error mode
-        active_users[user_id] = {
-            'error_mode': session.get('error_mode', False)
-        }
+        active_users[user_id] = {'error_mode': session.get('error_mode', False)}
         join_room(str(user_id))
         logger.info(f"User {user_id} connected and joined their room with error mode {active_users[user_id]['error_mode']}.")
 
@@ -148,10 +164,8 @@ def simulate_plant_data():
             for user_id, user_info in list(active_users.items()):
                 try:
                     if user_info['error_mode'] and randint(0, 1):
-                        # Log an error message and continue without sending data
                         logger.error(f"Failed to send data to: {user_id}: Will retry later")
                         continue
-
                     plants = Plant.query.filter_by(user_id=user_id).all()
                     for plant in plants:
                         fake_data = {
@@ -170,4 +184,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     socketio.start_background_task(simulate_plant_data)
-    socketio.run(app=app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
+    socketio.run(app=app, host="0.0.0.0", port=5005, allow_unsafe_werkzeug=True)
